@@ -87,9 +87,43 @@ _ccp_write_title() {
     esac
 }
 
+# When running under Herdr, also rename the pane and publish title metadata.
+# Only call this from set_title (base task titles), not from high-frequency
+# update_title_with_context status spinners.
+# Fail open: never break OSC title updates if herdr is missing or errors.
+_ccp_herdr_pane_rename() {
+    local title="$1"
+    [[ "${HERDR_ENV:-}" == "1" ]] || return 0
+    [[ -n "${HERDR_PANE_ID:-}" ]] || return 0
+    [[ -n "${title}" ]] || return 0
+
+    local herdr_bin="${HERDR_BIN_PATH:-herdr}"
+    command -v "${herdr_bin}" >/dev/null 2>&1 || return 0
+
+    # Keep pane labels short and stable (strip common spinner/status prefixes).
+    local pane_title
+    pane_title="$(printf '%s' "${title}" | sed -E 's/^[[:space:]]*[\|•●○◐◑◒◓✓✗\*\?▶▷]+[[:space:]]*//' | head -c 60)"
+    [[ -n "${pane_title}" ]] || return 0
+
+    # Debounce identical titles so rapid set_title calls don't spam herdr.
+    if [[ "${_CCP_LAST_HERDR_TITLE:-}" == "${pane_title}" ]]; then
+        return 0
+    fi
+    _CCP_LAST_HERDR_TITLE="${pane_title}"
+
+    "${herdr_bin}" pane rename "${HERDR_PANE_ID}" "${pane_title}" >/dev/null 2>&1 || true
+    "${herdr_bin}" pane report-metadata "${HERDR_PANE_ID}" \
+        --source "plugin:claude-code-pulse" \
+        --title "${pane_title}" \
+        --display-agent "${pane_title}" \
+        --token "task=${pane_title}" \
+        --ttl-ms 86400000 >/dev/null 2>&1 || true
+}
+
 set_title() {
     local title="$1"
     _ccp_write_title "${title}"
+    _ccp_herdr_pane_rename "${title}"
 
     # CCP_TITLE_LOG: append each title to a log file (used by e2e tests).
     # Use || true so a bad/unwritable path never terminates ccp under set -e.
