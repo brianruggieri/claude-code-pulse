@@ -7,6 +7,8 @@
 
 Running multiple Claude Code agents in split panes? Without ccp every pane shows a generic title — you have to read the terminal output to know what's happening in each one. With ccp, the title bar tells you.
 
+**Herdr support:** when running inside Herdr (`HERDR_ENV=1`), ccp also renames the Herdr pane and publishes `pane.report-metadata` on base task title updates so the Herdr sidebar stays aligned with the terminal title.
+
 ![Four iTerm2 split panes with ccp — each title bar independently showing project, branch, task, and live status](docs/screenshots/demo-4pane.gif)
 
 Each pane updates on its own schedule. When one agent finishes and commits, that pane flips to `💾 Committed`. The others keep going.
